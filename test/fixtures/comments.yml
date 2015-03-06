@@ -1,0 +1,19 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  is_dead: false
+  body: MyText
+  quality: 1.5
+  submitter: MyString
+  submitted: MyString
+  parent_id: 
+  story_id: 
+
+two:
+  is_dead: false
+  body: MyText
+  quality: 1.5
+  submitter: MyString
+  submitted: MyString
+  parent_id: 
+  story_id: 

@@ -1,0 +1,23 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  tag: MyString
+  title: MyString
+  url: MyString
+  source: MyString
+  body: MyText
+  points: 1
+  submitted: MyString
+  submitter: MyString
+  comments_count: 1
+
+two:
+  tag: MyString
+  title: MyString
+  url: MyString
+  source: MyString
+  body: MyText
+  points: 1
+  submitted: MyString
+  submitter: MyString
+  comments_count: 1
