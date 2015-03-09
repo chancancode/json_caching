@@ -18,7 +18,7 @@ class DetailedStorySerializer < Struct.new(:story)
     {
       story: StorySerializer.new(story),
       article: article ? ArticleSerializer.new(article) : nil,
-      comments: story.comments.map { |comment| CommentSerializer.new(comment) }
+      comments: story.comments.order(:id).map { |comment| CommentSerializer.new(comment) }
     }
   end
 

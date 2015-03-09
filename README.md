@@ -1,242 +1,78 @@
-# Is JSON Encoding in Rails finally fast yet?
+# Caching JSON Encoder For Rails (PoC)
 
-Maybe!
+The goal of this proof-of-concept is to speed up the JSON pipeline in Rails with
+a new JSON encoder that is optimized for Rails' needs. The tentative target is
+to release this with Rails 5, but the encoder should be usable with Rails 4.1 as
+well.
 
-## JSON Gem Encoder (Current Rails 4.1+)
+## Background
 
-```
-$ RAILS_ENV=production rake db:create db:migrate db:seed
+Since Rails 4.1, Rails internally uses the JSON gem from stdlib to encode your
+Ruby objects into JSON. This improved performance significantly, but it is still
+off by at least an order of magnitude in most cases, compared to the "raw"
+encoding performance of other JSON encoders for Ruby.
 
-$ RAILS_ENV=production rails s
+This can mainly be attributed to the mismatching APIs between Rails and the JSON
+gem – Rails expects developers to implement an `as_json` hook to describe how
+the object should be translated into JSON primitives, whereas the JSON gem uses
+a completely different mechanism and does not consider `as_json` at all. This
+forces us to do a "pre-encoding" step to resolve the `as_json` hooks on the tree
+before handing it off to the JSON gem for the actual encoding. (This sometimes
+results in multiple passes on the tree, because sometimes to `as_json` hooks
+themselves does a deep `as_json` pass as well.)
 
-$ ab -n 1000 http://localhost:3000/stories.json (Index)
+With a custom JSON encoder, we should be able to do a single-pass encoding and
+resolve any `as_json` hooks while traversing the tree for encoding.
 
-Percentage of the requests served within a certain time (ms)
-  50%     10
-  66%     10
-  75%     11
-  80%     11
-  90%     12
-  95%     13
-  98%     15
-  99%     15
- 100%     17 (longest request)
+### Caching
 
+Another key observation for this project is that a lot of these work are being
+duplicated per-request. JSON encoding itself is pretty slow, so even with a fast
+encoder, doing a `JSON.generate( ... )` on the same objects on every request is
+still needlessly wasteful if the objects themselves didn't change (thus the
+result of the encoding will be the same).
 
-$ ab -n 1000 http://localhost:3000/stories/9146006.json (Small article, 2 comments)
+Several JSON builder/serializer libraries already supports caching, but they are
+only able to cache the Ruby representation (i.e. the result of the resolved
+`as_json`s – containing hashes, arrays, etc), so they still need to go through
+the encoding process every request.
 
-Percentage of the requests served within a certain time (ms)
-  50%      5
-  66%      5
-  75%      5
-  80%      5
-  90%      6
-  95%      7
-  98%      7
-  99%      8
- 100%     10 (longest request)
+We should be able to leverage our custom encoder and cache the encoded strings
+directly. Further more, we should be able to do this Russian-doll style – for
+example, if one of the entries in a long array has changed, we should only need
+to re-encode that one object and stitch it together with the cached strings to
+emit the final JSON, without having to re-encode the other objects.
 
+## Current Status
 
-$ ab -n 1000 http://localhost:3000/stories/9145007.json (Medium article, 141 comments)
+See `config/initializers/cached_json_encoder.rb` for the PoC implementation.
 
-Percentage of the requests served within a certain time (ms)
-  50%     36
-  66%     37
-  75%     38
-  80%     38
-  90%     40
-  95%     42
-  98%     44
-  99%     45
- 100%     52 (longest request)
+See `app/controllers/stories_controller.rb` and `app/serializers` for the test
+cases. (This uses a simplified, `AM::S`-like serializer classes, but I don't see
+why the same technique cannot be applied to JBuilder, etc.)
 
+See `RESULTS.md` for the current benchmark results. All the benchmarks are ran
+using Ruby 2.2.0 with Apache Bench (which is to say that it's testing at the
+system level with the entire stack, not a micro-benchmark for just the encoding
+performance – i.e. this is what the users will in-theory notice).
 
-$ ab -n 1000 http://localhost:3000/stories/9145126.json (Long article, 121 comments)
+Summary:
 
-Percentage of the requests served within a certain time (ms)
-  50%     31
-  66%     32
-  75%     33
-  80%     34
-  90%     35
-  95%     36
-  98%     38
-  99%     38
- 100%     44 (longest request)
+* The raw encoding performance of the new encoder (i.e. Baseline vs 100% MISS)
+  is <= 20% slower than the current encoder shipped with Rails 4.1+.
 
+* Obviously, when you have the outer-most tree cached, this is very fast. In
+  this scenario (i.e. Baseline vs 100% HIT) the encoder is anywhere from 50% to
+  over 10X faster. (Relative performance is not very meaningful here, because
+  in this case the new encoder's performance is flat regardless of the payload.)
 
-$ ab -n 1000 http://localhost:3000/stories/9144271.json (No article, 136 comments)
+* The cache-reuse ("Russian Doll" caching) test is a bit disappointing at the
+  moment. The generation is ~15% slower compared to the baseline (re-encode all
+  the things using the current encoder). Ideally, we want to work towards having
+  this benchmark beating the current implementation.
 
-Percentage of the requests served within a certain time (ms)
-  50%     33
-  66%     35
-  75%     35
-  80%     36
-  90%     37
-  95%     39
-  98%     40
-  99%     41
- 100%     50 (longest request)
-```
+## Future Work
 
-* * *
-
-## Caching Encoder + Null Store
-
-```
-$ RAILS_ENV=production rake db:create db:migrate db:seed
-
-$ RAILS_ENV=production CACHE=1 NULL_STORE=1 rails s
-
-$ ab -n 1000 http://localhost:3000/stories.json (Index)
-
-Percentage of the requests served within a certain time (ms)
-  50%     12
-  66%     14
-  75%     15
-  80%     15
-  90%     16
-  95%     17
-  98%     18
-  99%     19
- 100%     21 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9146006.json (Small article, 2 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%      5
-  66%      6
-  75%      6
-  80%      6
-  90%      7
-  95%      7
-  98%      8
-  99%      8
- 100%     12 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9145007.json (Medium article, 141 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%     42
-  66%     44
-  75%     45
-  80%     45
-  90%     47
-  95%     48
-  98%     51
-  99%     52
- 100%     57 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9145126.json (Long article, 121 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%     38
-  66%     40
-  75%     41
-  80%     41
-  90%     43
-  95%     45
-  98%     47
-  99%     48
- 100%     55 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9144271.json (No article, 136 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%     42
-  66%     43
-  75%     44
-  80%     45
-  90%     46
-  95%     48
-  98%     50
-  99%     50
- 100%     59 (longest request)
-```
-
-## Caching Encoder + Memory Store
-
-```
-$ RAILS_ENV=production rake db:create db:migrate db:seed
-
-$ RAILS_ENV=production CACHE=1 rails s
-
-$ ab -n 1000 http://localhost:3000/stories.json (Index)
-
-Percentage of the requests served within a certain time (ms)
-  50%      5
-  66%      5
-  75%      5
-  80%      5
-  90%      6
-  95%      7
-  98%      8
-  99%      8
- 100%     47 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9146006.json (Small article, 2 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%      3
-  66%      3
-  75%      3
-  80%      3
-  90%      4
-  95%      4
-  98%      5
-  99%      5
- 100%     27 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9145007.json (Medium article, 141 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%      4
-  66%      4
-  75%      4
-  80%      4
-  90%      4
-  95%      4
-  98%      5
-  99%      6
- 100%     45 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9145126.json (Long article, 121 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%      4
-  66%      4
-  75%      4
-  80%      4
-  90%      5
-  95%      5
-  98%      6
-  99%      7
- 100%     44 (longest request)
-
-
-$ ab -n 1000 http://localhost:3000/stories/9144271.json (No article, 136 comments)
-
-Percentage of the requests served within a certain time (ms)
-  50%      3
-  66%      4
-  75%      4
-  80%      4
-  90%      4
-  95%      4
-  98%      5
-  99%      6
- 100%    118 (longest request)
-```
-
-* * *
-
-## TODO: Test Reusing Fragments ("Russian Doll")
-
-...
+* Make sure Rails' JSON encoding tests pass with the new encoder
+* Investigate the hotspots and optimize the Ruby implementation
+* Explore building a "native" encoder (C extenstion)
