@@ -8,9 +8,9 @@ class DetailedStorySerializer < Struct.new(:story)
 
   def cache_key
     if article
-      'detailed/' + story.cache_key + article.cache_key
+      'detailed/' + story.cache_key + '/' + article.cache_key
     else
-      'detailed/' + story.cache_key
+      'detailed/' + story.cache_key + '/null'
     end
   end
 

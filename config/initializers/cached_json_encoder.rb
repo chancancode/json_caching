@@ -6,6 +6,16 @@ else
   $cache = ActiveSupport::Cache::MemoryStore.new
 end
 
+if ENV['LOG']
+  ActiveSupport::Notifications.subscribe "cache_fetch_hit.active_support" do |*, payload|
+    Rails.logger.debug "[HIT]  #{payload[:key]}"
+  end
+
+  ActiveSupport::Notifications.subscribe "cache_generate.active_support" do |*, payload|
+    Rails.logger.debug "[MISS] #{payload[:key]}"
+  end
+end
+
 module ActiveSupport
   module JSON
     module Encoding
@@ -20,7 +30,7 @@ module ActiveSupport
         end
 
         def encode(value)
-          fetch_or_encode_value(value, '')
+          fetch_or_encode_value(value, '', true)
         end
 
         private
@@ -39,11 +49,11 @@ module ActiveSupport
             :ESCAPE_REGEX_WITH_HTML_ENTITIES,
             :ESCAPE_REGEX_WITHOUT_HTML_ENTITIES
 
-          def fetch_or_encode_value(value, buffer)
+          def fetch_or_encode_value(value, buffer, unwrap = false)
             if Cachable === value
-              buffer << $cache.fetch(value.cache_key) { encode_value(value.as_json, '') }
+              buffer << $cache.fetch(value.cache_key) { encode_value(unwrap ? value.as_json : value, '') }
             else
-              encode_value(value.as_json, buffer)
+              encode_value(unwrap ? value.as_json : value, buffer)
             end
           end
 
@@ -68,7 +78,7 @@ module ActiveSupport
             when Array
               encode_array(value, buffer)
             else
-              fetch_or_encode_value(value, buffer)
+              fetch_or_encode_value(value.as_json, buffer)
             end
           end
 

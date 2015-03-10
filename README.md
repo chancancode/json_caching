@@ -59,17 +59,16 @@ performance – i.e. this is what the users will in-theory notice).
 Summary:
 
 * The raw encoding performance of the new encoder (i.e. Baseline vs 100% MISS)
-  is <= 20% slower than the current encoder shipped with Rails 4.1+.
+  is ~~<= 20%~~ <= 50% slower than the current encoder shipped with Rails 4.1+.
 
 * Obviously, when you have the outer-most tree cached, this is very fast. In
   this scenario (i.e. Baseline vs 100% HIT) the encoder is anywhere from 50% to
   over 10X faster. (Relative performance is not very meaningful here, because
   in this case the new encoder's performance is flat regardless of the payload.)
 
-* The cache-reuse ("Russian Doll" caching) test is a bit disappointing at the
-  moment. The generation is ~15% slower compared to the baseline (re-encode all
-  the things using the current encoder). Ideally, we want to work towards having
-  this benchmark beating the current implementation.
+* The cache-reuse ("Russian Doll" caching) test is ~~a bit disappointing at the
+  moment. The generation is ~15% slower~~ up to 30% faster than to the baseline
+  (re-encode all the things using the current encoder).
 
 ## Future Work
 

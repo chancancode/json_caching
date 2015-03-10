@@ -1,7 +1,31 @@
+require "json"
+require "pp"
+
 def run(command)
   puts "$ #{command}"
   system command
 end
+
+def assert(command)
+  puts "$ #{command}"
+  system(command) || abort("Command exited with status #{$?}")
+end
+
+def diff_json(expected, actual)
+  if JSON.parse(expected) != JSON.parse(actual)
+    $stderr.puts "Expected:\n\n"
+    $stderr.puts expected.pretty_inspect
+    $stderr.puts "\n\n"
+    $stderr.puts "Actual:\n\n"
+    $stderr.puts actual.pretty_inspect
+
+    abort
+  end
+end
+
+puts "```"
+assert "RAILS_ENV=production rake db:drop db:create db:migrate db:seed 1> /dev/null"
+puts "```"
 
 BASIC = {
   'Index'                        => 'http://localhost:3000/stories.json',
@@ -11,17 +35,14 @@ BASIC = {
   'No article, 136 comments'     => 'http://localhost:3000/stories/9144271.json'
 }
 
-puts "# Basic Tests"
+puts "\n\n# Basic Tests"
 
 def run_basic_tests(name, params = '')
   puts "\n## #{name}\n\n"
 
   puts "```"
-
-  run "RAILS_ENV=production rake db:drop db:create db:migrate db:seed 1> /dev/null"
-  run "RAILS_ENV=production #{params} rails server --daemon 1> /dev/null"
-
-  puts "```\n"
+  assert "RAILS_ENV=production #{params} rails server --daemon 1> /dev/null"
+  puts "```"
 
   BASIC.each_pair do |name, url|
     puts "\n### #{name}\n\n"
@@ -29,17 +50,17 @@ def run_basic_tests(name, params = '')
     puts "```"
 
     file = URI.parse(url).path
-    run "if ! (curl #{url} | diff - test/fixtures/#{file}); then exit $?; fi"
+    diff_json File.read("test/fixtures#{file}"), `curl #{url}`
     run "ab -n 1000 #{url} | tail -n 11"
 
-    puts "```\n"
+    puts "```"
   end
 
   puts "\n```"
 
-  run "kill #{ `cat tmp/pids/server.pid` }"
+  assert "kill #{ `cat tmp/pids/server.pid` }"
 
-  puts "```\n"
+  puts "```"
 end
 
 run_basic_tests('Baseline (JSON Gem Encoder)')
@@ -65,17 +86,14 @@ WITH_INVALIDATION = {
   'No article, 136 comments (expire comment)'     => 'http://localhost:3000/stories/9144271.json?expire_comment=9144509'
 }
 
-puts "# Cache Reuse (Russian-doll)"
+puts "\n\n# Cache Reuse (Russian-doll)"
 
 def run_invalidation_tests(name, params = '')
   puts "\n## #{name}\n\n"
 
   puts "```"
-
-  run "RAILS_ENV=production rake db:drop db:create db:migrate db:seed 1> /dev/null"
-  run "RAILS_ENV=production #{params} rails server --daemon 1> /dev/null"
-
-  puts "```\n"
+  assert "RAILS_ENV=production #{params} rails server --daemon 1> /dev/null"
+  puts "```"
 
   WITH_INVALIDATION.each_pair do |name, url|
     puts "\n### #{name}\n\n"
@@ -83,17 +101,17 @@ def run_invalidation_tests(name, params = '')
     puts "```"
 
     file = URI.parse(url).path
-    run "if ! (curl #{url} | diff - test/fixtures#{file}); then exit $?; fi"
+    diff_json File.read("test/fixtures#{file}"), `curl #{url}`
     run "ab -n 1000 #{url} | tail -n 11"
 
-    puts "```\n"
+    puts "```"
   end
 
   puts "\n```"
 
-  run "kill #{ `cat tmp/pids/server.pid` }"
+  assert "kill #{ `cat tmp/pids/server.pid` }"
 
-  puts "```\n"
+  puts "```"
 end
 
 run_invalidation_tests('Baseline (JSON Gem Encoder)')

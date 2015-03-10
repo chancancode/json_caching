@@ -13,6 +13,10 @@ class StoriesController < ActionController::Base
   private
 
     def force_expiration!
+      if params[:expire_all]
+        $cache.clear
+      end
+
       if params[:expire_story]
         Story.find(params[:expire_story]).touch
       end
