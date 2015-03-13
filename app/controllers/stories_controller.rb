@@ -3,18 +3,18 @@ class StoriesController < ActionController::Base
   before_action :force_expiration!
 
   def index
-    render json: StoriesSerializer.new(Story.order(:id))
+    render json: StoriesSerializer.new(Story.order(:id)).to_json
   end
 
   def show
-    render json: DetailedStorySerializer.new(Story.find(params[:id]))
+    render json: DetailedStorySerializer.new(Story.find(params[:id])).to_json
   end
 
   private
 
     def force_expiration!
       if params[:expire_all]
-        $cache.clear
+        AsJsonEncoder.cache.clear
       end
 
       if params[:expire_story]

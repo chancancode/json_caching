@@ -1,6 +1,6 @@
 class StorySerializer < Struct.new(:story)
 
-  include ActiveSupport::JSON::Encoding::Cachable
+  include Cachable
 
   delegate :cache_key, to: :story
 

@@ -45,11 +45,13 @@ emit the final JSON, without having to re-encode the other objects.
 
 ## Current Status
 
-See `config/initializers/cached_json_encoder.rb` for the PoC implementation.
+See the [as_json_encoder](https://github.com/chancancode/as_json_encoder) gem
+for the current status on the encoder. Notably, the encoder passes all the JSON
+encoding tests in Rails.
 
-See `app/controllers/stories_controller.rb` and `app/serializers` for the test
-cases. (This uses a simplified, `AM::S`-like serializer classes, but I don't see
-why the same technique cannot be applied to JBuilder, etc.)
+See `app/controllers/stories_controller.rb` and `app/serializers` for the
+performance test cases. (This uses simplified, `AM::S`-like serializer objects,
+but I don't see why the same technique cannot be applied to JBuilder, etc.)
 
 See `RESULTS.md` for the current benchmark results. All the benchmarks are ran
 using Ruby 2.2.0 with Apache Bench (which is to say that it's testing at the
@@ -59,19 +61,18 @@ performance – i.e. this is what the users will in-theory notice).
 Summary:
 
 * The raw encoding performance of the new encoder (i.e. Baseline vs 100% MISS)
-  is ~~<= 20%~~ <= 50% slower than the current encoder shipped with Rails 4.1+.
+  is ~30% slower than the current encoder shipped with Rails 4.1+.
 
 * Obviously, when you have the outer-most tree cached, this is very fast. In
   this scenario (i.e. Baseline vs 100% HIT) the encoder is anywhere from 50% to
   over 10X faster. (Relative performance is not very meaningful here, because
   in this case the new encoder's performance is flat regardless of the payload.)
 
-* The cache-reuse ("Russian Doll" caching) test is ~~a bit disappointing at the
-  moment. The generation is ~15% slower~~ up to 30% faster than to the baseline
-  (re-encode all the things using the current encoder).
+* The cache-reuse ("Russian Doll" caching) test up to 30% faster than to the
+  baseline (re-encode all the things using the current encoder).
 
 ## Future Work
 
-* Make sure Rails' JSON encoding tests pass with the new encoder
+* ~~Make sure Rails' JSON encoding tests pass with the new encoder~~
 * Investigate the hotspots and optimize the Ruby implementation
 * Explore building a "native" encoder (C extenstion)

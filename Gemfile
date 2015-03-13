@@ -31,3 +31,5 @@ gem 'sdoc', '~> 0.4.0', group: :doc
 
 # Use Capistrano for deployment
 # gem 'capistrano-rails', group: :development
+
+gem 'as_json_encoder', github: 'chancancode/as_json_encoder', require: false

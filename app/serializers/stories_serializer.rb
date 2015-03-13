@@ -1,6 +1,6 @@
 class StoriesSerializer < Struct.new(:stories)
 
-  include ActiveSupport::JSON::Encoding::Cachable
+  include Cachable
 
   def cache_key
     'stories/' + stories.max_by(&:updated_at).cache_key

@@ -1,6 +1,6 @@
 class ArticleSerializer < Struct.new(:article)
 
-  include ActiveSupport::JSON::Encoding::Cachable
+  include Cachable
 
   delegate :cache_key, to: :article
 

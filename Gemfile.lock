@@ -1,3 +1,10 @@
+GIT
+  remote: git://github.com/chancancode/as_json_encoder.git
+  revision: 7b1404cceb1f82a04514e48c9a57c65e4ccd0edc
+  specs:
+    as_json_encoder (0.0.1)
+      activesupport (>= 4.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -133,6 +140,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  as_json_encoder!
   coffee-rails (~> 4.1.0)
   jbuilder (~> 2.0)
   jquery-rails

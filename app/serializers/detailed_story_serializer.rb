@@ -1,6 +1,6 @@
 class DetailedStorySerializer < Struct.new(:story)
 
-  include ActiveSupport::JSON::Encoding::Cachable
+  include Cachable
 
   def article
     defined?(@article) ? @article : @article = Article.find_by_url(story.url)

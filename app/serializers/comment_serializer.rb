@@ -1,6 +1,6 @@
 class CommentSerializer < Struct.new(:comment)
 
-  include ActiveSupport::JSON::Encoding::Cachable
+  include Cachable
 
   delegate :cache_key, to: :comment
 
